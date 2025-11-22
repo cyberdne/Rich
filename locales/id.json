@@ -1,0 +1,67 @@
+{
+  "welcome": {
+    "greeting": "🚀 Selamat datang di Bot Telegram Termux yang canggih!",
+    "description": "Saya adalah bot Telegram yang kuat dan serbaguna dengan banyak fitur. Gunakan tombol di bawah untuk menjelajahi apa yang bisa saya lakukan!"
+  },
+  "buttons": {
+    "back": "🔙 Kembali",
+    "next": "Selanjutnya 🔜",
+    "cancel": "❌ Batal",
+    "confirm": "✅ Konfirmasi",
+    "mainMenu": "📋 Menu Utama",
+    "settings": "⚙️ Pengaturan",
+    "help": "❓ Bantuan",
+    "admin": "🔧 Panel Admin"
+  },
+  "settings": {
+    "title": "⚙️ Pengaturan",
+    "description": "Sesuaikan pengalaman bot Anda:",
+    "keyboardStyle": "🎨 Gaya Keyboard",
+    "notificationStyle": "🔔 Gaya Notifikasi",
+    "language": "🌐 Bahasa",
+    "profile": "👤 Profil Saya",
+    "stats": "📊 Statistik Saya"
+  },
+  "admin": {
+    "title": "🔧 Panel Admin",
+    "description": "Selamat datang di panel admin. Pilih opsi:",
+    "users": "👥 Manajemen Pengguna",
+    "analytics": "📊 Analitik",
+    "botSettings": "⚙️ Pengaturan Bot",
+    "systemStatus": "🔄 Status Sistem",
+    "addFeature": "✨ Tambah Fitur Baru",
+    "editFeatures": "🔧 Edit Fitur",
+    "logs": "📝 Log",
+    "broadcast": "🚀 Broadcast"
+  },
+  "errors": {
+    "general": "❌ Terjadi kesalahan. Silakan coba lagi.",
+    "permissionDenied": "⛔ Anda tidak memiliki izin untuk mengakses fungsi ini.",
+    "featureNotFound": "❌ Fitur tidak ditemukan.",
+    "commandNotFound": "❌ Perintah tidak ditemukan.",
+    "userNotFound": "❌ Pengguna tidak ditemukan.",
+    "rateLimited": "⚠️ Anda mengirim permintaan terlalu cepat. Harap tunggu sebentar sebelum mencoba lagi."
+  },
+  "features": {
+    "example": {
+      "title": "Fitur Contoh",
+      "description": "Ini adalah fitur contoh untuk mendemonstrasikan kemampuan bot"
+    }
+  },
+  "notifications": {
+    "welcome": "Selamat datang di bot! Gunakan menu di bawah untuk memulai.",
+    "featureAdded": "Fitur baru ditambahkan: {name}",
+    "error": "Terjadi kesalahan: {message}"
+  },
+  "help": {
+    "title": "📚 Bantuan",
+    "description": "Berikut adalah perintah yang tersedia:",
+    "commands": {
+      "start": "Mulai bot dan tampilkan menu utama",
+      "help": "Tampilkan pesan bantuan ini",
+      "settings": "Konfigurasikan pengaturan bot Anda",
+      "menu": "Tampilkan menu utama",
+      "admin": "Akses fungsi admin (hanya admin)"
+    }
+  }
+}

@@ -1,0 +1,363 @@
+const { Configuration, OpenAIApi } = require('openai');
+const config = require('../../config/config');
+const logger = require('../../utils/logger');
+const { addFeature } = require('../../features/featureLoader');
+const { nanoid } = require('nanoid');
+
+let openai;
+
+try {
+  const configuration = new Configuration({
+    apiKey: config.OPENAI_API_KEY,
+  });
+  openai = new OpenAIApi(configuration);
+} catch (error) {
+  logger.error('Failed to initialize OpenAI API:', error);
+}
+
+/**
+ * Generate a feature using AI
+ * @param {string} description - Description of the feature to generate
+ * @returns {Promise<Object>} Generated feature
+ */
+async function generateFeatureWithAI(description) {
+  try {
+    if (!openai) {
+      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+    }
+    
+    logger.info(`Generating feature with AI from description: ${description.substring(0, 100)}...`);
+    
+    // Generate feature data with OpenAI
+    const prompt = `Generate a Telegram bot feature based on this description: "${description}"
+
+Return a JSON object with the following structure:
+{
+  "id": "unique_feature_id",
+  "name": "Feature Name",
+  "description": "Detailed description of the feature",
+  "emoji": "🔍",
+  "submenus": [
+    {
+      "id": "submenu_id",
+      "name": "Submenu Name",
+      "description": "Submenu description",
+      "emoji": "📋",
+      "actions": [
+        {
+          "id": "action_id",
+          "name": "Action Name",
+          "description": "Action description",
+          "emoji": "⚙️"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "action_id",
+      "name": "Action Name",
+      "description": "Action description",
+      "emoji": "⚙️"
+    }
+  ]
+}
+
+Follow these rules:
+1. "id" must be lowercase, alphanumeric with underscores only, and unique
+2. Choose appropriate emojis for each element
+3. Design a logical structure with appropriate submenus and actions
+4. Make feature description detailed and helpful
+5. Return ONLY the JSON object with no additional text`;
+
+    const response = await openai.createChatCompletion({
+      model: config.AI_MODEL,
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant that designs Telegram bot features.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+    
+    // Parse the feature data
+    let featureData;
+    try {
+      const content = response.data.choices[0].message.content.trim();
+      
+      // Extract JSON from response
+      const jsonMatch = content.match(/```(?:json)?([\s\S]*?)```/) || [null, content];
+      const jsonContent = jsonMatch[1].trim();
+      
+      featureData = JSON.parse(jsonContent);
+    } catch (parseError) {
+      logger.error('Failed to parse AI response:', parseError);
+      throw new Error('Failed to parse the AI-generated feature. Please try again with a clearer description.');
+    }
+    
+    // Validate the feature data
+    if (!featureData.id || !featureData.name || !featureData.description || !featureData.emoji) {
+      throw new Error('AI generated incomplete feature data. Please try again.');
+    }
+    
+    // Add the feature to the database
+    const feature = await addFeature(featureData);
+    
+    // Generate code for the feature
+    await generateFeatureCode(feature, description);
+    
+    return feature;
+  } catch (error) {
+    logger.error('Error generating feature with AI:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate code for a feature
+ * @param {Object} feature - Feature object
+ * @param {string} description - Original description
+ * @returns {Promise<void>}
+ */
+async function generateFeatureCode(feature, description) {
+  try {
+    if (!openai) {
+      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+    }
+    
+    const fs = require('fs-extra');
+    const path = require('path');
+    
+    logger.info(`Generating code for feature: ${feature.id}`);
+    
+    // Prepare feature actions and submenus for code generation
+    const actionsJson = JSON.stringify(feature.actions, null, 2);
+    const submenusJson = JSON.stringify(feature.submenus, null, 2);
+    
+    // Generate code with OpenAI
+    const prompt = `Create a NodeJS module for a Telegram bot feature with the following details:
+
+Feature ID: ${feature.id}
+Feature Name: ${feature.name}
+Description: ${feature.description}
+User's original request: ${description}
+
+Actions: ${actionsJson}
+Submenus: ${submenusJson}
+
+Create a module that implements this feature with the following:
+1. A handleAction function to handle all actions
+2. A handleCallback function to process custom callbacks
+3. An init function if needed to set up the feature
+
+The code should be well-structured, include error handling, and follow modern JavaScript practices.
+
+Here's the template to follow:
+
+\`\`\`javascript
+// ${feature.name} Feature
+// Generated by AI at ${new Date().toISOString()}
+
+module.exports = {
+  // Initialize the feature
+  async init(bot, feature) {
+    // Initialization code here
+  },
+  
+  // Handle action callbacks for this feature
+  async handleAction(ctx, action, feature) {
+    try {
+      // Answer callback query to remove loading indicator
+      ctx.answerCbQuery();
+      
+      switch (action.id) {
+        // Handle different actions here
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(\`Error in ${feature.id} handleAction:\`, error);
+      await ctx.reply('An error occurred while processing your request.');
+      return false;
+    }
+  },
+  
+  // Handle custom callbacks for this feature
+  async handleCallback(ctx, callbackData) {
+    try {
+      // Check if this callback is for this feature
+      if (!callbackData.startsWith('${feature.id}:')) {
+        return false;
+      }
+      
+      // Answer callback query
+      ctx.answerCbQuery();
+      
+      const parts = callbackData.split(':');
+      const action = parts[1];
+      
+      switch (action) {
+        // Handle custom callbacks here
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(\`Error in ${feature.id} handleCallback:\`, error);
+      await ctx.reply('An error occurred while processing your request.');
+      return false;
+    }
+  }
+};
+\`\`\`
+
+Implement functions for ALL actions and submenus listed. Your code should be complete and ready to run. Return ONLY the complete JavaScript code with no additional explanation.`;
+
+    const response = await openai.createChatCompletion({
+      model: config.AI_MODEL,
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an expert JavaScript developer specializing in Telegram bot development. You create clean, functional, and well-documented code.' 
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 2000,
+    });
+    
+    // Extract the code
+    let code;
+    try {
+      const content = response.data.choices[0].message.content.trim();
+      
+      // Extract code from response
+      const codeMatch = content.match(/```(?:javascript)?([\s\S]*?)```/) || [null, content];
+      code = codeMatch[1].trim();
+      
+      if (!code.includes('module.exports')) {
+        // If no module.exports is found, use the whole response
+        code = content;
+      }
+    } catch (parseError) {
+      logger.error('Failed to parse AI code response:', parseError);
+      throw new Error('Failed to generate code for the feature.');
+    }
+    
+    // Save the code to a file
+    const featureDir = path.join(config.DYNAMIC_FEATURES_PATH, feature.id);
+    await fs.ensureDir(featureDir);
+    
+    const featureFile = path.join(featureDir, `${feature.id}.js`);
+    await fs.writeFile(featureFile, code);
+    
+    logger.info(`Generated and saved code for feature: ${feature.id}`);
+  } catch (error) {
+    logger.error('Error generating feature code with AI:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a feature improvement suggestion
+ * @param {Object} feature - Existing feature to improve
+ * @param {string} prompt - User's improvement request
+ * @returns {Promise<string>} Improvement suggestion
+ */
+async function generateFeatureImprovement(feature, prompt) {
+  try {
+    if (!openai) {
+      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+    }
+    
+    logger.info(`Generating improvement for feature ${feature.id} with prompt: ${prompt.substring(0, 100)}...`);
+    
+    const featureJson = JSON.stringify(feature, null, 2);
+    
+    const response = await openai.createChatCompletion({
+      model: config.AI_MODEL,
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant that designs Telegram bot features.' },
+        { 
+          role: 'user', 
+          content: `I have a Telegram bot feature that I want to improve:
+${featureJson}
+
+User's improvement request: "${prompt}"
+
+Suggest specific improvements to this feature. Focus on practical enhancements that would make the feature more useful, more user-friendly, or add new functionality.
+
+Your suggestions should include:
+1. Specific changes to the feature structure (new submenus, actions, etc.)
+2. Changes to descriptions or names if needed
+3. Any additional functionality that could be added
+
+Format your response as a structured list of recommendations.` 
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+    
+    return response.data.choices[0].message.content.trim();
+  } catch (error) {
+    logger.error('Error generating feature improvement with AI:', error);
+    throw error;
+  }
+}
+
+/**
+ * Analyze error logs and generate debugging suggestions
+ * @param {Array} errorLogs - Array of error log objects
+ * @returns {Promise<string>} Debugging suggestions
+ */
+async function generateDebugSuggestions(errorLogs) {
+  try {
+    if (!openai) {
+      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+    }
+    
+    // Limit the number of logs to analyze
+    const logs = errorLogs.slice(-10);
+    
+    logger.info(`Generating debug suggestions for ${logs.length} error logs`);
+    
+    const logsJson = JSON.stringify(logs, null, 2);
+    
+    const response = await openai.createChatCompletion({
+      model: config.AI_MODEL,
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an expert software engineer specializing in Node.js and Telegram bots. You can identify issues from error logs and provide debugging suggestions.' 
+        },
+        { 
+          role: 'user', 
+          content: `Analyze these error logs from my Telegram bot and provide debugging suggestions:
+${logsJson}
+
+Please identify:
+1. Common patterns or recurring issues
+2. Likely root causes for these errors
+3. Specific troubleshooting steps I should take
+4. Potential code fixes or improvements
+
+Your analysis should be practical and focused on helping me resolve these issues.` 
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+    });
+    
+    return response.data.choices[0].message.content.trim();
+  } catch (error) {
+    logger.error('Error generating debug suggestions with AI:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  generateFeatureWithAI,
+  generateFeatureCode,
+  generateFeatureImprovement,
+  generateDebugSuggestions
+};

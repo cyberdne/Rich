@@ -1,0 +1,67 @@
+{
+  "welcome": {
+    "greeting": "🚀 Welcome to the advanced Termux Telegram Bot!",
+    "description": "I am a powerful and versatile Telegram bot with many features. Use the buttons below to explore what I can do!"
+  },
+  "buttons": {
+    "back": "🔙 Back",
+    "next": "Next 🔜",
+    "cancel": "❌ Cancel",
+    "confirm": "✅ Confirm",
+    "mainMenu": "📋 Main Menu",
+    "settings": "⚙️ Settings",
+    "help": "❓ Help",
+    "admin": "🔧 Admin Panel"
+  },
+  "settings": {
+    "title": "⚙️ Settings",
+    "description": "Customize your bot experience:",
+    "keyboardStyle": "🎨 Keyboard Style",
+    "notificationStyle": "🔔 Notification Style",
+    "language": "🌐 Language",
+    "profile": "👤 My Profile",
+    "stats": "📊 My Statistics"
+  },
+  "admin": {
+    "title": "🔧 Admin Panel",
+    "description": "Welcome to the admin panel. Select an option:",
+    "users": "👥 User Management",
+    "analytics": "📊 Analytics",
+    "botSettings": "⚙️ Bot Settings",
+    "systemStatus": "🔄 System Status",
+    "addFeature": "✨ Add New Feature",
+    "editFeatures": "🔧 Edit Features",
+    "logs": "📝 Logs",
+    "broadcast": "🚀 Broadcast"
+  },
+  "errors": {
+    "general": "❌ An error occurred. Please try again.",
+    "permissionDenied": "⛔ You do not have permission to access this function.",
+    "featureNotFound": "❌ Feature not found.",
+    "commandNotFound": "❌ Command not found.",
+    "userNotFound": "❌ User not found.",
+    "rateLimited": "⚠️ You're sending requests too quickly. Please wait a moment before trying again."
+  },
+  "features": {
+    "example": {
+      "title": "Example Feature",
+      "description": "This is an example feature to demonstrate bot capabilities"
+    }
+  },
+  "notifications": {
+    "welcome": "Welcome to the bot! Use the menu below to get started.",
+    "featureAdded": "New feature added: {name}",
+    "error": "An error occurred: {message}"
+  },
+  "help": {
+    "title": "📚 Help",
+    "description": "Here are the available commands:",
+    "commands": {
+      "start": "Start the bot and show main menu",
+      "help": "Show this help message",
+      "settings": "Configure your bot settings",
+      "menu": "Show the main menu",
+      "admin": "Access admin functions (admin only)"
+    }
+  }
+}
