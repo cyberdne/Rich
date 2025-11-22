@@ -6,7 +6,17 @@ const logger = require('../utils/logger');
 const { getFeaturesDb } = require('../database/db');
 const { addUser, getUser, setUserAdmin } = require('../database/users');
 const { createFeatureFromTemplate } = require('../modules/ai/featureGenerator');
-const { generateFeatureWithAI } = require('../modules/ai/aiService');
+
+// Check if AI service is available
+let generateFeatureWithAI = null;
+if (config.AI_ENABLED) {
+  try {
+    const aiService = require('../modules/ai/aiService');
+    generateFeatureWithAI = aiService.generateFeatureWithAI;
+  } catch (error) {
+    logger.warn('AI service not available, AI features will be disabled');
+  }
+}
 
 module.exports = (bot) => {
   // Handle text messages from admins (for feature generation etc.)
@@ -91,17 +101,30 @@ module.exports = (bot) => {
 async function handleMakeAdmin(ctx) {
   try {
     // Parse user ID from command
-    const userId = parseInt(ctx.message.text.split(' ')[1]);
+    const args = ctx.message.text.split(' ');
     
-    if (!userId) {
+    if (args.length < 2) {
       return ctx.reply('❌ Please provide a valid user ID. Usage: /makeadmin 123456789');
+    }
+    
+    const userIdStr = args[1];
+    
+    // Validate user ID format (must be numeric, positive integer)
+    if (!userIdStr.match(/^\d+$/)) {
+      return ctx.reply(`❌ Invalid user ID format. User ID must be a positive integer. You provided: ${userIdStr}`);
+    }
+    
+    const userId = parseInt(userIdStr);
+    
+    if (userId <= 0 || !Number.isInteger(userId)) {
+      return ctx.reply('❌ User ID must be a positive integer.');
     }
     
     // Check if user exists
     const user = await getUser(userId);
     
     if (!user) {
-      return ctx.reply(`❌ User with ID ${userId} not found.`);
+      return ctx.reply(`❌ User with ID ${userId} not found. Make sure the user has started the bot first.`);
     }
     
     // Check if user is already an admin
@@ -115,9 +138,15 @@ async function handleMakeAdmin(ctx) {
     await ctx.reply(`✅ User ${user.first_name} (${userId}) is now an admin.`);
     
     // Notify the user they've been made an admin
-    await ctx.telegram.sendMessage(userId, 
-      `🎉 Congratulations! You have been granted admin privileges for ${config.BOT_NAME}. Use /admin to access the admin panel.`
-    );
+    try {
+      await ctx.telegram.sendMessage(userId, 
+        `🎉 Congratulations! You have been granted admin privileges for ${config.BOT_NAME}. Use /admin to access the admin panel.`,
+        { parse_mode: 'Markdown' }
+      );
+    } catch (notifyError) {
+      logger.warn(`Could not notify user ${userId} about admin promotion:`, notifyError.message);
+      await ctx.reply(`⚠️ User promoted to admin but notification failed. User may have blocked the bot.`);
+    }
     
     // Log the action
     logger.info(`User ${user.first_name} (${userId}) was made admin by ${ctx.from.id}`);
@@ -131,10 +160,23 @@ async function handleMakeAdmin(ctx) {
 async function handleRemoveAdmin(ctx) {
   try {
     // Parse user ID from command
-    const userId = parseInt(ctx.message.text.split(' ')[1]);
+    const args = ctx.message.text.split(' ');
     
-    if (!userId) {
+    if (args.length < 2) {
       return ctx.reply('❌ Please provide a valid user ID. Usage: /removeadmin 123456789');
+    }
+    
+    const userIdStr = args[1];
+    
+    // Validate user ID format
+    if (!userIdStr.match(/^\d+$/)) {
+      return ctx.reply(`❌ Invalid user ID format. User ID must be a positive integer. You provided: ${userIdStr}`);
+    }
+    
+    const userId = parseInt(userIdStr);
+    
+    if (userId <= 0 || !Number.isInteger(userId)) {
+      return ctx.reply('❌ User ID must be a positive integer.');
     }
     
     // Check if user exists
@@ -151,7 +193,12 @@ async function handleRemoveAdmin(ctx) {
     
     // Check if user is removing themselves
     if (userId === ctx.from.id) {
-      return ctx.reply('❌ You cannot remove yourself as admin.');
+      return ctx.reply('❌ You cannot remove yourself as admin. Ask another admin to remove you.');
+    }
+    
+    // Check if trying to remove the primary admin
+    if (config.ADMIN_IDS.includes(userId) && config.ADMIN_IDS.length === 1) {
+      return ctx.reply('❌ Cannot remove the last admin. Add another admin first.');
     }
     
     // Remove admin privileges
@@ -160,9 +207,13 @@ async function handleRemoveAdmin(ctx) {
     await ctx.reply(`✅ Admin privileges removed from user ${user.first_name} (${userId}).`);
     
     // Notify the user
-    await ctx.telegram.sendMessage(userId, 
-      `ℹ️ Your admin privileges for ${config.BOT_NAME} have been removed.`
-    );
+    try {
+      await ctx.telegram.sendMessage(userId, 
+        `ℹ️ Your admin privileges for ${config.BOT_NAME} have been removed.`
+      );
+    } catch (notifyError) {
+      logger.warn(`Could not notify user ${userId} about admin removal:`, notifyError.message);
+    }
     
     // Log the action
     logger.info(`Admin privileges removed from user ${user.first_name} (${userId}) by ${ctx.from.id}`);
@@ -261,6 +312,20 @@ async function handleAIDescription(ctx) {
           ]
         }
       });
+    }
+    
+    // Check if AI is enabled
+    if (!config.AI_ENABLED || !generateFeatureWithAI) {
+      return ctx.reply(
+        '❌ AI feature generation is not available. Please make sure you have set the OPENAI_API_KEY in your .env file.',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Admin', callback_data: 'admin' }]
+            ]
+          }
+        }
+      );
     }
     
     // Validate description

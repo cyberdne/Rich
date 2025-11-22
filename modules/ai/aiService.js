@@ -1,4 +1,3 @@
-const { Configuration, OpenAIApi } = require('openai');
 const config = require('../../config/config');
 const logger = require('../../utils/logger');
 const { addFeature } = require('../../features/featureLoader');
@@ -7,12 +6,19 @@ const { nanoid } = require('nanoid');
 let openai;
 
 try {
-  const configuration = new Configuration({
-    apiKey: config.OPENAI_API_KEY,
-  });
-  openai = new OpenAIApi(configuration);
+  // Use modern OpenAI SDK (v4+)
+  if (config.OPENAI_API_KEY) {
+    const { OpenAI } = require('openai');
+    openai = new OpenAI({
+      apiKey: config.OPENAI_API_KEY,
+      timeout: config.AI_TIMEOUT,
+    });
+    logger.info('OpenAI API initialized successfully');
+  } else {
+    logger.warn('OpenAI API Key not configured. AI features will be disabled.');
+  }
 } catch (error) {
-  logger.error('Failed to initialize OpenAI API:', error);
+  logger.error('Failed to initialize OpenAI API:', error.message);
 }
 
 /**
@@ -23,7 +29,7 @@ try {
 async function generateFeatureWithAI(description) {
   try {
     if (!openai) {
-      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+      throw new Error('OpenAI API not initialized. Please configure your OpenAI API key in the .env file.');
     }
     
     logger.info(`Generating feature with AI from description: ${description.substring(0, 100)}...`);
@@ -70,7 +76,7 @@ Follow these rules:
 4. Make feature description detailed and helpful
 5. Return ONLY the JSON object with no additional text`;
 
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: config.AI_MODEL,
       messages: [
         { role: 'system', content: 'You are a helpful assistant that designs Telegram bot features.' },
@@ -83,7 +89,7 @@ Follow these rules:
     // Parse the feature data
     let featureData;
     try {
-      const content = response.data.choices[0].message.content.trim();
+      const content = response.choices[0].message.content.trim();
       
       // Extract JSON from response
       const jsonMatch = content.match(/```(?:json)?([\s\S]*?)```/) || [null, content];
@@ -212,7 +218,7 @@ module.exports = {
 
 Implement functions for ALL actions and submenus listed. Your code should be complete and ready to run. Return ONLY the complete JavaScript code with no additional explanation.`;
 
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: config.AI_MODEL,
       messages: [
         { 
@@ -228,7 +234,7 @@ Implement functions for ALL actions and submenus listed. Your code should be com
     // Extract the code
     let code;
     try {
-      const content = response.data.choices[0].message.content.trim();
+      const content = response.choices[0].message.content.trim();
       
       // Extract code from response
       const codeMatch = content.match(/```(?:javascript)?([\s\S]*?)```/) || [null, content];
@@ -266,14 +272,14 @@ Implement functions for ALL actions and submenus listed. Your code should be com
 async function generateFeatureImprovement(feature, prompt) {
   try {
     if (!openai) {
-      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+      throw new Error('OpenAI API not initialized. Please configure your OpenAI API key in the .env file.');
     }
     
     logger.info(`Generating improvement for feature ${feature.id} with prompt: ${prompt.substring(0, 100)}...`);
     
     const featureJson = JSON.stringify(feature, null, 2);
     
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: config.AI_MODEL,
       messages: [
         { role: 'system', content: 'You are a helpful assistant that designs Telegram bot features.' },
@@ -298,7 +304,7 @@ Format your response as a structured list of recommendations.`
       max_tokens: 1000,
     });
     
-    return response.data.choices[0].message.content.trim();
+    return response.choices[0].message.content.trim();
   } catch (error) {
     logger.error('Error generating feature improvement with AI:', error);
     throw error;
@@ -313,7 +319,7 @@ Format your response as a structured list of recommendations.`
 async function generateDebugSuggestions(errorLogs) {
   try {
     if (!openai) {
-      throw new Error('OpenAI API not initialized. Check your API key configuration.');
+      throw new Error('OpenAI API not initialized. Please configure your OpenAI API key in the .env file.');
     }
     
     // Limit the number of logs to analyze
@@ -323,7 +329,7 @@ async function generateDebugSuggestions(errorLogs) {
     
     const logsJson = JSON.stringify(logs, null, 2);
     
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: config.AI_MODEL,
       messages: [
         { 
@@ -348,7 +354,7 @@ Your analysis should be practical and focused on helping me resolve these issues
       max_tokens: 1000,
     });
     
-    return response.data.choices[0].message.content.trim();
+    return response.choices[0].message.content.trim();
   } catch (error) {
     logger.error('Error generating debug suggestions with AI:', error);
     throw error;

@@ -15,6 +15,8 @@ const { loadFeatures } = require('./features/featureLoader');
 const { setupLogger } = require('./middleware/logger');
 const { setupAuth } = require('./middleware/auth');
 const { setupRateLimiter } = require('./middleware/rateLimiter');
+const { setupStatsTracker } = require('./middleware/statsTracker');
+const autoFixer = require('./modules/ai/autoFixer');
 
 // Initialize bot with token from .env
 const bot = new Telegraf(config.BOT_TOKEN);
@@ -46,6 +48,7 @@ bot.use(i18nInstance.middleware());
 bot.use(setupLogger());
 bot.use(setupAuth());
 bot.use(setupRateLimiter());
+bot.use(setupStatsTracker());
 
 // Load dynamic features
 loadFeatures(bot)
@@ -72,36 +75,98 @@ adminHandler(bot);
 bot.catch(errorHandler);
 
 // Start the bot
-bot.launch()
-  .then(() => {
-    const botInfo = bot.telegram.getMe();
-    logger.info(`Bot started as @${botInfo.username}`);
+(async () => {
+  try {
+    await bot.launch();
     
-    // Send startup notification to admin
+    try {
+      const botInfo = await bot.telegram.getMe();
+      logger.info(`Bot started as @${botInfo.username}`);
+    } catch (error) {
+      logger.warn('Could not fetch bot info:', error.message);
+    }
+    
+    // Send startup notification to admin (non-blocking)
     const startupMessage = `🚀 Bot started successfully!\n\n` +
                          `📊 Node.js: ${process.version}\n` +
                          `🔧 Environment: ${config.NODE_ENV}\n` +
                          `⏱ Started at: ${new Date().toISOString()}`;
     
-    config.ADMIN_IDS.forEach(adminId => {
-      bot.telegram.sendMessage(adminId, startupMessage)
-        .catch(err => logger.error(`Failed to send startup notification to admin ${adminId}:`, err));
-    });
+    // Use setImmediate to send notifications without blocking
+    setImmediate(async () => {
+      for (const adminId of config.ADMIN_IDS) {
+        try {
+          await bot.telegram.sendMessage(adminId, startupMessage);
+        } catch (err) {
+          logger.error(`Failed to send startup notification to admin ${adminId}:`, err.message);
+        }
+      }
 
-    // Send startup log to log channel if configured
-    if (config.LOG_CHANNEL_ID) {
-      bot.telegram.sendMessage(config.LOG_CHANNEL_ID, `📝 Bot started at ${new Date().toISOString()}`)
-        .catch(err => logger.error('Failed to send log to channel:', err));
+      // Send startup log to log channel if configured
+      if (config.LOG_CHANNEL_ID) {
+        try {
+          await bot.telegram.sendMessage(config.LOG_CHANNEL_ID, `📝 Bot started at ${new Date().toISOString()}`);
+        } catch (err) {
+          logger.error('Failed to send log to channel:', err.message);
+        }
+      }
+    });
+    
+    // Schedule auto-fixer scans if enabled
+    if (config.AUTO_FIX_ENABLED) {
+      const intervalMs = config.AUTO_FIX_INTERVAL_MS || 1000 * 60 * 5; // default 5 minutes
+      setInterval(async () => {
+        try {
+          await autoFixer.scanAndFix(bot);
+        } catch (err) {
+          logger.error('AutoFixer periodic scan failed:', err.message);
+        }
+      }, intervalMs);
+      logger.info(`AutoFixer scheduled every ${intervalMs}ms`);
     }
-  })
-  .catch(err => {
+    
+    logger.info('Bot is running and listening for updates');
+  } catch (err) {
     logger.error('Error starting bot:', err);
     process.exit(1);
-  });
+  }
+})();
 
 // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', async () => {
+  logger.info('Received SIGINT, shutting down gracefully...');
+  try {
+    await bot.stop('SIGINT');
+    logger.info('Bot stopped successfully');
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+});
+
+process.once('SIGTERM', async () => {
+  logger.info('Received SIGTERM, shutting down gracefully...');
+  try {
+    await bot.stop('SIGTERM');
+    logger.info('Bot stopped successfully');
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Export bot for testing purposes
 module.exports = bot;

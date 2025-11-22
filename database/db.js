@@ -37,21 +37,53 @@ async function initDbFile(filePath, defaultData) {
       logger.info(`Created database file: ${filePath}`);
     }
     
-    // Initialize lowdb
-    const adapter = new JSONFile(filePath);
-    const db = new Low(adapter);
-    await db.read();
-    
-    // Ensure data structure
-    if (!db.data) {
-      db.data = defaultData;
-      await db.write();
+    try {
+      // Initialize lowdb
+      const adapter = new JSONFile(filePath);
+      const db = new Low(adapter);
+      await db.read();
+      
+      // Ensure data structure
+      if (!db.data) {
+        db.data = defaultData;
+        await db.write();
+      }
+      
+      return db;
+    } catch (dbError) {
+      logger.error(`Error initializing database adapter for ${filePath}:`, dbError.message);
+      // Return a minimal working database instance
+      return {
+        data: defaultData,
+        write: async () => {
+          try {
+            await fs.writeJSON(filePath, defaultData, { spaces: 2 });
+          } catch (writeErr) {
+            logger.error('Error writing database file:', writeErr.message);
+          }
+        },
+        read: async () => {
+          try {
+            const data = await fs.readJSON(filePath);
+            this.data = data;
+          } catch (readErr) {
+            logger.error('Error reading database file:', readErr.message);
+          }
+        }
+      };
     }
-    
-    return db;
   } catch (error) {
-    logger.error(`Error initializing database file ${filePath}:`, error);
-    throw error;
+    logger.error(`Error initializing database file ${filePath}:`, error.message);
+    // Return fallback database instance
+    return {
+      data: defaultData,
+      write: async () => {
+        logger.warn('Database write failed - using in-memory storage only');
+      },
+      read: async () => {
+        logger.warn('Database read failed - using cached data');
+      }
+    };
   }
 }
 
@@ -99,8 +131,9 @@ async function initDatabase() {
     
     logger.info('All databases initialized successfully');
   } catch (error) {
-    logger.error('Failed to initialize databases:', error);
-    throw error;
+    logger.error('Failed to initialize databases:', error.message);
+    logger.warn('Bot will continue with limited functionality');
+    // Don't throw - allow bot to continue with in-memory databases
   }
 }
 

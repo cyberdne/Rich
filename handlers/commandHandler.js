@@ -156,12 +156,29 @@ module.exports = (bot) => {
       const activeUsers = await getActiveUsers();
       const statsDb = getStatsDb();
       
+      // Calculate actual statistics from database
+      const totalCommands = Object.values(statsDb.data.usageStats.commandsUsed || {})
+        .reduce((acc, val) => acc + val, 0);
+      const totalFeatureUsage = Object.values(statsDb.data.usageStats.featuresUsed || {})
+        .reduce((acc, val) => acc + val, 0);
+      const totalInteractions = Object.values(statsDb.data.usageStats.userActivity || {})
+        .reduce((acc, val) => acc + (val.callbacksTriggered || 0), 0);
+      
+      // Get memory stats
+      const memUsage = process.memoryUsage();
+      
       const statsMessage = `📊 *Bot Statistics*\n\n` +
                           `👥 Total users: ${users.length}\n` +
                           `👤 Active users (30d): ${activeUsers.length}\n` +
                           `🤖 Bot uptime: ${formatUptime(process.uptime())}\n\n` +
-                          `Top commands:\n${formatTopCommands(statsDb.data.usageStats.commandsUsed)}\n\n` +
-                          `Top features:\n${formatTopFeatures(statsDb.data.usageStats.featuresUsed)}`;
+                          `*Usage Statistics:*\n` +
+                          `📝 Total commands used: ${totalCommands}\n` +
+                          `🎯 Total features accessed: ${totalFeatureUsage}\n` +
+                          `🔔 Total interactions: ${totalInteractions}\n\n` +
+                          `*Top Commands:*\n${formatTopCommands(statsDb.data.usageStats.commandsUsed)}\n\n` +
+                          `*Top Features:*\n${formatTopFeatures(statsDb.data.usageStats.featuresUsed)}\n\n` +
+                          `*System Resources:*\n` +
+                          `🧠 Memory: ${formatBytes(memUsage.heapUsed)} / ${formatBytes(memUsage.heapTotal)}`;
       
       await ctx.replyWithMarkdown(statsMessage);
     } catch (error) {

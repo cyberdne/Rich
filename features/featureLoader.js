@@ -90,75 +90,14 @@ async function loadFeatures(bot) {
  */
 async function createBasicFeatureModule(feature) {
   try {
+    const { createFeatureWithModule } = require('../utils/featureModuleGenerator');
+    
     const featureDir = path.join(config.DYNAMIC_FEATURES_PATH, feature.id);
     await fs.ensureDir(featureDir);
     
-    const featureModulePath = path.join(featureDir, `${feature.id}.js`);
+    // Use the feature module generator
+    await createFeatureWithModule(feature);
     
-    // Basic module template
-    const moduleTemplate = `
-// ${feature.name} Feature
-// Created at ${new Date().toISOString()}
-
-module.exports = {
-  // Initialize the feature
-  async init(bot, feature) {
-    console.log('${feature.name} feature initialized');
-    // Any initialization code here
-  },
-  
-  // Handle action callbacks for this feature
-  async handleAction(ctx, action, feature) {
-    try {
-      ctx.answerCbQuery();
-      
-      switch (action.id) {
-        ${feature.actions?.map(action => `
-        case '${action.id}':
-          await ctx.reply('${action.name} action triggered');
-          break;
-        `).join('') || '// No actions defined'}
-        default:
-          await ctx.reply(\`Action \${action.id} not implemented yet.\`);
-          break;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error(\`Error in ${feature.id} handleAction:\`, error);
-      await ctx.reply('An error occurred while processing your request.');
-      return false;
-    }
-  },
-  
-  // Handle custom callbacks for this feature
-  async handleCallback(ctx, callbackData) {
-    try {
-      // Check if this callback is for this feature
-      if (!callbackData.startsWith('${feature.id}:')) {
-        return false;
-      }
-      
-      const parts = callbackData.split(':');
-      const action = parts[1];
-      
-      ctx.answerCbQuery();
-      
-      switch (action) {
-        // Add custom callback handlers here
-        default:
-          return false;
-      }
-    } catch (error) {
-      console.error(\`Error in ${feature.id} handleCallback:\`, error);
-      await ctx.reply('An error occurred while processing your request.');
-      return false;
-    }
-  }
-};
-`;
-    
-    await fs.writeFile(featureModulePath, moduleTemplate);
     logger.info(`Created basic module for feature ${feature.id}`);
   } catch (error) {
     logger.error(`Error creating basic feature module for ${feature.id}:`, error);

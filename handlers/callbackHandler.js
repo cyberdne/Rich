@@ -7,6 +7,8 @@ const logger = require('../utils/logger');
 const keyboards = require('../config/keyboards');
 
 module.exports = (bot) => {
+  // Note: try...catch blocks are used throughout this handler to
+  // ensure robust error handling in callback processing.
   // Handle callback queries
   bot.on('callback_query', async (ctx) => {
     try {
@@ -1000,37 +1002,55 @@ async function handleBroadcastConfirm(ctx) {
       );
     }
     
-    // Get all users
-    const { getAllUsers } = require('../database/users');
-    const users = await getAllUsers();
+    // Validate message length
+    if (message.length < 1 || message.length > 4096) {
+      return ctx.editMessageText(
+        '❌ Message too long. Please keep message under 4096 characters.',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Back to Admin', callback_data: 'admin' }]
+            ]
+          }
+        }
+      );
+    }
+    
+    // Use broadcast service
+    const { broadcastToAllUsers } = require('../utils/broadcastService');
     
     await ctx.editMessageText('📣 Broadcasting message to all users...');
     
     // Send message to all users
-    let sentCount = 0;
-    let errorCount = 0;
-    
-    for (const user of users) {
-      try {
-        await ctx.telegram.sendMessage(user.id, message, { parse_mode: 'Markdown' });
-        sentCount++;
-      } catch (error) {
-        logger.error(`Failed to send broadcast to user ${user.id}:`, error);
-        errorCount++;
-      }
-      
-      // Add a small delay to prevent flood limits
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
+    const result = await broadcastToAllUsers(ctx.bot, message, {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
+    });
     
     // Clear pending broadcast
     ctx.session.pendingBroadcast = null;
     
+    // Prepare completion message with detailed statistics
+    let completionMessage = `✅ Broadcast completed!\n\n`;
+    completionMessage += `📤 Sent: ${result.sent}/${result.totalUsers} users\n`;
+    
+    if (result.blocked > 0) {
+      completionMessage += `🚫 Blocked: ${result.blocked} users\n`;
+    }
+    
+    if (result.failed > 0) {
+      completionMessage += `❌ Failed: ${result.failed} users\n`;
+    }
+    
+    if (result.skipped > 0) {
+      completionMessage += `⏭️ Skipped: ${result.skipped} users\n`;
+    }
+    
+    completionMessage += `\n💯 Success Rate: ${result.successRate}`;
+    
     // Send completion message
     await ctx.reply(
-      `✅ Broadcast completed!\n\n` +
-      `- Message sent to: ${sentCount} users\n` +
-      `- Failed: ${errorCount} users`,
+      completionMessage,
       {
         reply_markup: {
           inline_keyboard: [
@@ -1041,7 +1061,16 @@ async function handleBroadcastConfirm(ctx) {
     );
   } catch (error) {
     logger.error('Error in handleBroadcastConfirm:', error);
-    throw error;
+    await ctx.reply(
+      `❌ Broadcast error: ${error.message}`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Back to Admin', callback_data: 'admin' }]
+          ]
+        }
+      }
+    );
   }
 }
 

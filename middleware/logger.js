@@ -10,8 +10,8 @@ function setupLogger() {
     try {
       // Log incoming update
       const updateType = ctx.updateType || 'unknown';
-      const updateId = ctx.update.update_id;
-      const userId = ctx.from ? ctx.from.id : 'unknown';
+      const updateId = ctx.update?.update_id || 'unknown';
+      const userId = ctx.from?.id || 'unknown';
       const username = ctx.from ? (ctx.from.username || ctx.from.first_name) : 'unknown';
       
       // Create log message based on update type
@@ -35,13 +35,19 @@ function setupLogger() {
       await next();
       
       // Log performance if enabled
-      if (config.DEBUG_MODE && ctx.state.startTime) {
+      if (config.DEBUG_MODE && ctx.state?.startTime) {
         const responseTime = Date.now() - ctx.state.startTime;
         logger.debug(`Response time: ${responseTime}ms for update #${updateId}`);
         
-        // Track response time
-        const { trackResponseTime } = require('../modules/analytics/performanceMonitor');
-        await trackResponseTime(responseTime);
+        // Track response time (non-blocking)
+        try {
+          const { trackResponseTime } = require('../modules/analytics/performanceMonitor');
+          trackResponseTime(responseTime).catch(err => {
+            logger.debug('Error tracking response time:', err);
+          });
+        } catch (err) {
+          logger.debug('Performance monitor not available');
+        }
       }
     } catch (error) {
       logger.error('Error in logger middleware:', error);
