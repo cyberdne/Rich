@@ -1,0 +1,12 @@
+{
+  "usageStats": {
+    "commandsUsed": {},
+    "featuresUsed": {},
+    "userActivity": {}
+  },
+  "performanceStats": {
+    "responseTime": [],
+    "errors": [],
+    "memoryUsage": []
+  }
+}

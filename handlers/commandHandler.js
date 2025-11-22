@@ -22,7 +22,9 @@ module.exports = (bot) => {
       
       // Get all features
       const featuresDb = getFeaturesDb();
-      const features = featuresDb.data.features;
+      const features = featuresDb.data?.features || [];
+      
+      logger.debug(`Start command: user ${ctx.from.id}, keyboard style: ${keyboardStyle}, features: ${features.length}`);
       
       // Send welcome message with main menu
       const welcomeMessage = `🚀 *Welcome to ${config.BOT_NAME}!*\n\n` +
@@ -96,7 +98,9 @@ module.exports = (bot) => {
       
       // Get all features
       const featuresDb = getFeaturesDb();
-      const features = featuresDb.data.features;
+      const features = featuresDb.data?.features || [];
+      
+      logger.debug(`Menu command: fetched ${features.length} features for user ${ctx.from.id}`);
       
       await ctx.reply(
         '📋 *Main Menu*\n\nSelect a feature:',

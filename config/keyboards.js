@@ -46,16 +46,28 @@ const KEYBOARD_STYLES = {
 
 // Main menu keyboard generator
 const getMainMenuKeyboard = (style, features, ctx) => {
+  // Ensure features is an array and filter enabled features
+  const enabledFeatures = Array.isArray(features) ? features.filter(f => f && f.enabled) : [];
+  
   const keyboardStyle = KEYBOARD_STYLES[style] || KEYBOARD_STYLES[config.DEFAULT_KEYBOARD_STYLE];
-  const buttons = features.map(feature => ({
-    text: keyboardStyle.useEmojis ? `${feature.emoji} ${feature.name}` : feature.name,
+  const buttons = enabledFeatures.map(feature => ({
+    text: keyboardStyle.useEmojis ? `${feature.emoji || '🎯'} ${feature.name}` : feature.name,
     callback_data: `feature:${feature.id}`,
   }));
   
   // Organize buttons into rows based on keyboard style
   const keyboard = [];
-  for (let i = 0; i < buttons.length; i += keyboardStyle.mainMenuRows) {
-    keyboard.push(buttons.slice(i, i + keyboardStyle.mainMenuRows));
+  const rowSize = keyboardStyle.mainMenuRows || 2;
+  for (let i = 0; i < buttons.length; i += rowSize) {
+    keyboard.push(buttons.slice(i, i + rowSize));
+  }
+  
+  // If no features, show placeholder button
+  if (buttons.length === 0) {
+    keyboard.push([{
+      text: '📭 No features available',
+      callback_data: 'no_features'
+    }]);
   }
   
   // Add settings button at the bottom

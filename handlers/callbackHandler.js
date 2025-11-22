@@ -1,5 +1,5 @@
 const { Markup } = require('telegraf');
-const { getKeyboardStyle, setKeyboardStyle, getNotificationStyle, setNotificationStyle, setUserLanguage } = require('../database/settings');
+const { getKeyboardStyle, setKeyboardStyle, getNotificationStyle, setNotificationStyle, setUserLanguage, getUserSettings } = require('../database/settings');
 const { updateUserActivity, getUser } = require('../database/users');
 const { getFeaturesDb } = require('../database/db');
 const config = require('../config/config');
@@ -266,13 +266,16 @@ async function handleProfileSettings(ctx) {
       return ctx.reply('User not found. Please restart the bot with /start.');
     }
     
+    // Get user settings from settings database (not from users)
+    const userSettings = await getUserSettings(ctx.from.id);
+    
     const profileText = `👤 *Your Profile*\n\n` +
                         `Name: ${user.first_name} ${user.last_name || ''}\n` +
                         `Username: ${user.username ? '@' + user.username : 'None'}\n` +
                         `User ID: \`${user.id}\`\n` +
-                        `Language: ${user.settings?.language || 'en'}\n` +
-                        `Keyboard Style: ${user.settings?.keyboardStyle || config.DEFAULT_KEYBOARD_STYLE}\n` +
-                        `Notification Style: ${user.settings?.notificationStyle || config.DEFAULT_NOTIFICATION_STYLE}\n` +
+                        `Language: ${userSettings?.language || 'en'}\n` +
+                        `Keyboard Style: ${userSettings?.keyboardStyle || config.DEFAULT_KEYBOARD_STYLE}\n` +
+                        `Notification Style: ${userSettings?.notificationStyle || config.DEFAULT_NOTIFICATION_STYLE}\n` +
                         `Joined: ${new Date(user.createdAt).toLocaleDateString()}\n` +
                         `Last Activity: ${new Date(user.lastActivity).toLocaleDateString()}`;
     
@@ -399,9 +402,17 @@ async function handleSetNotificationStyle(ctx, style) {
     
     // Update user settings
     await setNotificationStyle(ctx.from.id, style);
+    logger.info(`Notification style updated for user ${ctx.from.id}: ${style}`);
     
-    // Show success message
-    const successText = `✅ Notification style updated to *${style}*!\n\nThis will affect how notifications are displayed.`;
+    // Show success message with friendly name
+    const styleNames = {
+      'standard': 'Standard',
+      'emoji-rich': 'Emoji Rich',
+      'minimal': 'Minimal',
+      'detailed': 'Detailed'
+    };
+    
+    const successText = `✅ Notification style updated to *${styleNames[style] || style}*!\n\nThis will affect how notifications are displayed.`;
     
     // Try to edit the message if possible, otherwise send a new one
     try {
