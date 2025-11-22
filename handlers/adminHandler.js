@@ -4,8 +4,9 @@ const path = require('path');
 const config = require('../config/config');
 const logger = require('../utils/logger');
 const { getFeaturesDb } = require('../database/db');
-const { addUser, getUser, setUserAdmin } = require('../database/users');
+const { addUser, getUser, setUserAdmin, banUser, unbanUser, isUserBanned } = require('../database/users');
 const { createFeatureFromTemplate } = require('../modules/ai/featureGenerator');
+const { searchUsers, formatUserForDisplay, getUserDetails } = require('../utils/userSearch');
 
 // Check if AI service is available
 let generateFeatureWithAI = null;
@@ -57,6 +58,24 @@ module.exports = (bot) => {
       // Handle /removeadmin command
       if (ctx.message.text.startsWith('/removeadmin') && config.ADMIN_IDS.includes(ctx.from.id)) {
         await handleRemoveAdmin(ctx);
+        return; // Stop processing
+      }
+      
+      // Handle /searchuser command
+      if (ctx.message.text.startsWith('/searchuser') && config.ADMIN_IDS.includes(ctx.from.id)) {
+        await handleSearchUser(ctx);
+        return; // Stop processing
+      }
+      
+      // Handle /banuser command
+      if (ctx.message.text.startsWith('/banuser') && config.ADMIN_IDS.includes(ctx.from.id)) {
+        await handleBanUser(ctx);
+        return; // Stop processing
+      }
+      
+      // Handle /unbanuser command
+      if (ctx.message.text.startsWith('/unbanuser') && config.ADMIN_IDS.includes(ctx.from.id)) {
+        await handleUnbanUser(ctx);
         return; // Stop processing
       }
       
@@ -729,5 +748,142 @@ async function handleCustomCode(ctx) {
         ]
       }
     });
+  }
+  
+  // Handle /searchuser command
+  async function handleSearchUser(ctx) {
+    try {
+      const parts = ctx.message.text.split(' ').slice(1);
+      
+      if (parts.length === 0) {
+        return await ctx.reply(
+          '🔍 *User Search*\n\nUsage:\n' +
+          '/searchuser <query>\n\n' +
+          'Examples:\n' +
+          '/searchuser 123456789 (search by ID)\n' +
+          '/searchuser username (search by username)\n' +
+          '/searchuser John (search by name)',
+          { parse_mode: 'Markdown' }
+        );
+      }
+      
+      const query = parts.join(' ');
+      const results = await searchUsers(query);
+      
+      if (results.length === 0) {
+        return await ctx.reply(`❌ No users found matching: "${query}"`);
+      }
+      
+      let message = `🔍 *Search Results* (${results.length} found)\n\n`;
+      
+      for (const user of results.slice(0, 10)) {
+        message += `${formatUserForDisplay(user)}\n\n`;
+      }
+      
+      if (results.length > 10) {
+        message += `\n... and ${results.length - 10} more results`;
+      }
+      
+      await ctx.replyWithMarkdown(message);
+    } catch (error) {
+      logger.error('Error in handleSearchUser:', error);
+      await ctx.reply('Error searching users: ' + error.message);
+    }
+  }
+  
+  // Handle /banuser command
+  async function handleBanUser(ctx) {
+    try {
+      const parts = ctx.message.text.split(' ').slice(1);
+      
+      if (parts.length < 1) {
+        return await ctx.reply(
+          '🚫 *Ban User*\n\nUsage:\n' +
+          '/banuser <user_id> [reason]\n\n' +
+          'Examples:\n' +
+          '/banuser 123456789\n' +
+          '/banuser 123456789 Spam and abuse',
+          { parse_mode: 'Markdown' }
+        );
+      }
+      
+      const userId = parseInt(parts[0]);
+      const reason = parts.slice(1).join(' ') || 'No reason provided';
+      
+      if (isNaN(userId)) {
+        return await ctx.reply('❌ Invalid user ID. Please provide a valid number.');
+      }
+      
+      // Check if user exists
+      const user = await getUser(userId);
+      if (!user) {
+        return await ctx.reply(`❌ User ${userId} not found in database.`);
+      }
+      
+      // Ban the user
+      const bannedUser = await banUser(userId, reason);
+      
+      await ctx.replyWithMarkdown(
+        `✅ *User Banned Successfully*\n\n` +
+        `User: ${bannedUser.first_name} ${bannedUser.last_name || ''}\n` +
+        `ID: \`${bannedUser.id}\`\n` +
+        `Reason: ${reason}\n` +
+        `Banned At: ${new Date(bannedUser.bannedAt).toLocaleString()}`
+      );
+      
+      logger.info(`Admin ${ctx.from.id} banned user ${userId}: ${reason}`);
+    } catch (error) {
+      logger.error('Error in handleBanUser:', error);
+      await ctx.reply('Error banning user: ' + error.message);
+    }
+  }
+  
+  // Handle /unbanuser command
+  async function handleUnbanUser(ctx) {
+    try {
+      const parts = ctx.message.text.split(' ').slice(1);
+      
+      if (parts.length < 1) {
+        return await ctx.reply(
+          '🔓 *Unban User*\n\nUsage:\n' +
+          '/unbanuser <user_id>\n\n' +
+          'Example:\n' +
+          '/unbanuser 123456789',
+          { parse_mode: 'Markdown' }
+        );
+      }
+      
+      const userId = parseInt(parts[0]);
+      
+      if (isNaN(userId)) {
+        return await ctx.reply('❌ Invalid user ID. Please provide a valid number.');
+      }
+      
+      // Check if user exists
+      const user = await getUser(userId);
+      if (!user) {
+        return await ctx.reply(`❌ User ${userId} not found in database.`);
+      }
+      
+      // Check if user is actually banned
+      const isBanned = await isUserBanned(userId);
+      if (!isBanned) {
+        return await ctx.reply(`⚠️ User ${userId} is not banned.`);
+      }
+      
+      // Unban the user
+      const unbannedUser = await unbanUser(userId);
+      
+      await ctx.replyWithMarkdown(
+        `✅ *User Unbanned Successfully*\n\n` +
+        `User: ${unbannedUser.first_name} ${unbannedUser.last_name || ''}\n` +
+        `ID: \`${unbannedUser.id}\``
+      );
+      
+      logger.info(`Admin ${ctx.from.id} unbanned user ${userId}`);
+    } catch (error) {
+      logger.error('Error in handleUnbanUser:', error);
+      await ctx.reply('Error unbanning user: ' + error.message);
+    }
   }
 }

@@ -1,4 +1,4 @@
-const { addUser, getUser } = require('../database/users');
+const { addUser, getUser, isUserBanned } = require('../database/users');
 const logger = require('../utils/logger');
 const config = require('../config/config');
 
@@ -14,6 +14,13 @@ function setupAuth() {
       // Skip if no user information
       if (!ctx.from) {
         return await next();
+      }
+      
+      // Check if user is banned
+      const banned = await isUserBanned(ctx.from.id);
+      if (banned) {
+        logger.warn(`Banned user attempted access: ${ctx.from.id}`);
+        return await ctx.reply('🚫 Your account has been banned. You cannot use this bot.');
       }
       
       // Check if user exists, create if not

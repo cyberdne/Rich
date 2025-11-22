@@ -205,6 +205,78 @@ async function getActiveUsers() {
   }
 }
 
+/**
+ * Ban a user (prevent bot usage)
+ * @param {number} userId - User ID to ban
+ * @param {string} reason - Reason for ban (optional)
+ * @returns {Promise<Object>} Updated user object
+ */
+async function banUser(userId, reason = 'No reason provided') {
+  try {
+    const db = getUsersDb();
+    const userIndex = db.data.users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      throw new Error(`User ${userId} not found`);
+    }
+    
+    db.data.users[userIndex].banned = true;
+    db.data.users[userIndex].banReason = reason;
+    db.data.users[userIndex].bannedAt = new Date().toISOString();
+    db.data.users[userIndex].updatedAt = new Date().toISOString();
+    
+    await db.write();
+    logger.info(`User ${userId} banned: ${reason}`);
+    return db.data.users[userIndex];
+  } catch (error) {
+    logger.error(`Error banning user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Unban a user
+ * @param {number} userId - User ID to unban
+ * @returns {Promise<Object>} Updated user object
+ */
+async function unbanUser(userId) {
+  try {
+    const db = getUsersDb();
+    const userIndex = db.data.users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      throw new Error(`User ${userId} not found`);
+    }
+    
+    db.data.users[userIndex].banned = false;
+    db.data.users[userIndex].banReason = null;
+    db.data.users[userIndex].bannedAt = null;
+    db.data.users[userIndex].updatedAt = new Date().toISOString();
+    
+    await db.write();
+    logger.info(`User ${userId} unbanned`);
+    return db.data.users[userIndex];
+  } catch (error) {
+    logger.error(`Error unbanning user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Check if user is banned
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is banned
+ */
+async function isUserBanned(userId) {
+  try {
+    const user = await getUser(userId);
+    return user && user.banned === true;
+  } catch (error) {
+    logger.error(`Error checking ban status for user ${userId}:`, error);
+    return false;
+  }
+}
+
 module.exports = {
   addUser,
   getUser,
@@ -215,4 +287,7 @@ module.exports = {
   setUserAdmin,
   updateUserSettings,
   getActiveUsers,
+  banUser,
+  unbanUser,
+  isUserBanned,
 };

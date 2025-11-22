@@ -191,6 +191,86 @@ async function setUserLanguage(userId, language) {
   return updateUserSettings(userId, { language });
 }
 
+/**
+ * Enable a feature for a user
+ * @param {number} userId - Telegram user ID
+ * @param {string} featureId - Feature ID
+ * @returns {Promise<Object>} Updated settings
+ */
+async function enableFeature(userId, featureId) {
+  try {
+    const settings = await getUserSettings(userId);
+    const enabledFeatures = settings.enabledFeatures || [];
+    
+    if (!enabledFeatures.includes(featureId)) {
+      enabledFeatures.push(featureId);
+    }
+    
+    return updateUserSettings(userId, { enabledFeatures });
+  } catch (error) {
+    logger.error(`Error enabling feature ${featureId} for user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Disable a feature for a user
+ * @param {number} userId - Telegram user ID
+ * @param {string} featureId - Feature ID
+ * @returns {Promise<Object>} Updated settings
+ */
+async function disableFeature(userId, featureId) {
+  try {
+    const settings = await getUserSettings(userId);
+    let enabledFeatures = settings.enabledFeatures || [];
+    
+    enabledFeatures = enabledFeatures.filter(id => id !== featureId);
+    
+    return updateUserSettings(userId, { enabledFeatures });
+  } catch (error) {
+    logger.error(`Error disabling feature ${featureId} for user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Check if feature is enabled for user (all features enabled by default if not set)
+ * @param {number} userId - Telegram user ID
+ * @param {string} featureId - Feature ID
+ * @returns {Promise<boolean>} True if feature is enabled
+ */
+async function isFeatureEnabled(userId, featureId) {
+  try {
+    const settings = await getUserSettings(userId);
+    const enabledFeatures = settings.enabledFeatures;
+    
+    // If enabledFeatures not set, all features are enabled
+    if (!enabledFeatures) {
+      return true;
+    }
+    
+    return enabledFeatures.includes(featureId);
+  } catch (error) {
+    logger.error(`Error checking feature ${featureId} for user ${userId}:`, error);
+    return true; // Default to enabled
+  }
+}
+
+/**
+ * Get all enabled features for a user
+ * @param {number} userId - Telegram user ID
+ * @returns {Promise<Array>} Array of enabled feature IDs
+ */
+async function getEnabledFeatures(userId) {
+  try {
+    const settings = await getUserSettings(userId);
+    return settings.enabledFeatures || []; // Empty array means all are enabled
+  } catch (error) {
+    logger.error(`Error getting enabled features for user ${userId}:`, error);
+    return [];
+  }
+}
+
 module.exports = {
   getBotSettings,
   updateBotSettings,
@@ -202,4 +282,8 @@ module.exports = {
   setNotificationStyle,
   getUserLanguage,
   setUserLanguage,
+  enableFeature,
+  disableFeature,
+  isFeatureEnabled,
+  getEnabledFeatures,
 };
