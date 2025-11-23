@@ -238,6 +238,84 @@ else
     warn_feature "Custom features" "Dynamic features directory not created yet"
 fi
 
+echo -e "\n${BLUE}=== LIVE RUNTIME CHECKS ===${NC}"
+
+# 1) Verify each feature module file exists and can be required without syntax/runtime errors
+node - <<'NODE'
+const fs = require('fs');
+const config = require('./config/config');
+let features = [];
+try {
+    const data = JSON.parse(fs.readFileSync('data/features.json', 'utf8'));
+    features = data.features || [];
+} catch (e) {
+    console.error('Failed to read data/features.json:', e.message);
+    process.exit(2);
+}
+
+let failed = false;
+for (const f of features) {
+    const modulePath = `${config.DYNAMIC_FEATURES_PATH}/${f.id}/${f.id}.js`;
+    if (!fs.existsSync(modulePath)) {
+        console.error(`✗ Feature module missing: ${f.id} -> ${modulePath}`);
+        failed = true;
+        continue;
+    }
+    try {
+        // Clear cache and require to detect syntax/runtime errors
+        delete require.cache[require.resolve(modulePath)];
+        const mod = require(modulePath);
+        if (!(mod && (typeof mod.handleAction === 'function' || typeof mod.handleCallback === 'function' || typeof mod.init === 'function'))) {
+            console.warn(`! Feature ${f.id} loaded but exports look minimal (no handlers detected)`);
+        }
+        console.log(`✓ Feature module OK: ${f.id}`);
+    } catch (err) {
+        console.error(`✗ Error loading feature ${f.id}: ${err.message}`);
+        failed = true;
+    }
+}
+
+if (failed) process.exit(1);
+console.log('All feature modules loaded successfully.');
+process.exit(0);
+NODE
+
+if [ $? -ne 0 ]; then
+        test_feature "Feature modules runtime load" "false" "One or more feature modules failed to load or are missing"
+else
+        test_feature "Feature modules runtime load" "true" ""
+fi
+
+# 2) Verify main menu keyboard contains feature buttons (not just Settings placeholder)
+node - <<'NODE'
+try {
+    const kb = require('./config/keyboards');
+    const config = require('./config/config');
+    const fs = require('fs');
+    const data = JSON.parse(fs.readFileSync('data/features.json', 'utf8'));
+    const features = data.features || [];
+    const keyboardObj = kb.getMainMenuKeyboard(config.DEFAULT_KEYBOARD_STYLE, features, {});
+    const buttons = (keyboardObj.inline_keyboard || []).flat().filter(b => b && b.callback_data);
+    // Exclude settings and placeholder
+    const featureButtons = buttons.filter(b => b.callback_data !== 'settings' && b.callback_data !== 'no_features');
+    if (featureButtons.length === 0) {
+        console.error('✗ Main menu has no feature buttons (only Settings/placeholder detected)');
+        process.exit(1);
+    }
+    console.log(`✓ Main menu contains ${featureButtons.length} feature button(s)`);
+    process.exit(0);
+} catch (err) {
+    console.error('✗ Error checking main menu keyboard:', err.message);
+    process.exit(2);
+}
+NODE
+
+if [ $? -ne 0 ]; then
+        test_feature "Main menu buttons" "false" "Main menu does not contain feature buttons or keyboard generation failed"
+else
+        test_feature "Main menu buttons" "true" ""
+fi
+
 echo -e "\n${BLUE}=== FINAL REPORT ===${NC}"
 
 TOTAL=$((PASS + FAIL))

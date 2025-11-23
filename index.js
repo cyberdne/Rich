@@ -109,8 +109,22 @@ bot.catch(errorHandler);
       if (config.LOG_CHANNEL_ID) {
         try {
           await bot.telegram.sendMessage(config.LOG_CHANNEL_ID, `📝 Bot started at ${new Date().toISOString()}`);
+          logger.info(`Startup notification sent to log channel: ${config.LOG_CHANNEL_ID}`);
         } catch (err) {
-          logger.error('Failed to send log to channel:', err.message);
+          // Log detailed error and write a fallback file so admin can inspect
+          logger.error('Failed to send log to channel:', err && err.message ? err.message : err);
+          try {
+            const fallback = {
+              time: new Date().toISOString(),
+              channel: config.LOG_CHANNEL_ID,
+              error: err && err.message ? err.message : String(err)
+            };
+            await fs.ensureDir(path.join(__dirname, 'logs'));
+            await fs.writeFile(path.join(__dirname, 'logs', 'last_startup_channel_error.json'), JSON.stringify(fallback, null, 2));
+            logger.info('Wrote logs/last_startup_channel_error.json with failure details');
+          } catch (writeErr) {
+            logger.error('Failed to write fallback startup error file:', writeErr && writeErr.message ? writeErr.message : writeErr);
+          }
         }
       }
     });
