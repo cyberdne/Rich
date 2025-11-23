@@ -74,6 +74,14 @@ echo -e "${YELLOW}Starting bot...${NC}"
 echo -e "${GREEN}================================${NC}"
 echo ""
 
+# Quick syntax check for core handlers to fail early with clear error
+echo -e "${YELLOW}🔎 Checking core handlers for syntax errors...${NC}"
+node -e "require('./handlers/commandHandler.js'); require('./handlers/callbackHandler.js'); require('./handlers/adminHandler.js');" 2>/dev/null
+if [ $? -ne 0 ]; then
+  echo -e "${RED}❌ Syntax error detected in one of the handlers. Run:\n  node -e \"require('./handlers/commandHandler.js')\"\nto see the error details.${NC}"
+  exit 1
+fi
+
 # Check if running with screen or tmux
 if [ "$1" == "screen" ]; then
   echo -e "${YELLOW}📌 Starting in screen session 'bot'${NC}"
