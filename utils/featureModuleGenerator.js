@@ -9,39 +9,29 @@ const config = require('../config/config');
  * @returns {string} Generated JavaScript code for the feature module
  */
 function generateFeatureModuleCode(feature) {
-  // Generate action handlers
+  // Generate action handlers with polished messages
   const actionHandlers = feature.actions?.map(action => `
     case '${action.id}':
-      await ctx.answerCbQuery('✅ Processing ${action.name}...');
-      await ctx.reply(\`
+      await ctx.answerCbQuery();
+      await ctx.replyWithMarkdown(\`
 🎯 *${action.name}*
 
-${action.description || 'No description provided'}
+${action.description || 'No description provided.'}
 
-This feature is now ready for your custom implementation.
-To add functionality:
-1. Edit the action handler
-2. Implement your business logic
-3. Send responses back to the user
-      \`, { parse_mode: 'Markdown' });
+_Tip: this action was generated automatically. If you are the admin you can customize its behavior._
+\`);
       break;`).join('\n') || `
     default:
-      await ctx.answerCbQuery('❌ Action not implemented');
-      await ctx.reply('This action is not yet implemented.');
+      await ctx.answerCbQuery();
+      await ctx.reply('⚠️ Unknown action.');
       break;`;
 
   // Generate submenu action handlers
   const submenuActions = (feature.submenus || []).flatMap(submenu =>
     (submenu.actions || []).map(action => `
     case '${submenu.id}:${action.id}':
-      await ctx.answerCbQuery('✅ Processing ${action.name}...');
-      await ctx.reply(\`
-📋 *${submenu.name}* > *${action.name}*
-
-${action.description || 'No description provided'}
-
-This feature is ready for implementation.
-      \`, { parse_mode: 'Markdown' });
+      await ctx.answerCbQuery();
+      await ctx.replyWithMarkdown(\`📋 *${submenu.name}* > *${action.name}*\n\n${action.description || 'No description provided.'}\`);
       break;`)
   ).join('\n') || '';
 
@@ -49,16 +39,10 @@ This feature is ready for implementation.
   const submenuHandlers = (feature.submenus || []).map(submenu => `
     case '${submenu.id}':
       await ctx.answerCbQuery();
-      const submenuText = \`
-🎯 *${submenu.name}*
-
-${submenu.description || 'No description provided'}
-
-Select an option:
-      \`;
+      const submenuText = \`🎯 *${submenu.name}*\n\n${submenu.description || 'No description provided.'}\n\nSelect an option:\`;
       
       const submenuKeyboard = [
-        ${(submenu.actions || []).map(action => `{ text: '${action.emoji} ${action.name}', callback_data: '${feature.id}:${submenu.id}:${action.id}' }`).join(',\n        ')}${(submenu.actions || []).length > 0 ? ',\n        ' : ''}{ text: '🔙 Back', callback_data: 'feature:${feature.id}' }
+        ${(submenu.actions || []).map(action => `{ text: '${action.emoji || "⚙️"} ${action.name}', callback_data: '${feature.id}:${submenu.id}:${action.id}' }`).join(',\n        ')}${(submenu.actions || []).length > 0 ? ',\n        ' : ''}{ text: '🔙 Back', callback_data: 'feature:${feature.id}' }
       ];
       
       try {

@@ -5,6 +5,8 @@ const { getMainMenuKeyboard } = require('../config/keyboards');
 const { getFeaturesDb } = require('../database/db');
 const logger = require('../utils/logger');
 const config = require('../config/config');
+const fs = require('fs-extra');
+const path = require('path');
 
 module.exports = (bot) => {
   // Start command
@@ -255,20 +257,30 @@ module.exports = (bot) => {
     try {
       // Check if user is admin
       if (!config.ADMIN_IDS.includes(ctx.from.id)) {
-        return ctx.reply('⛔ You do not have permission to broadcast messages.');
-      }
-      
-      logger.info(`Broadcast command from user ${ctx.from.id}`);
-      
-      // Parse broadcast message
-      const message = ctx.message.text.split(' ').slice(1).join(' ');
-      
-      if (!message) {
-        return ctx.reply('Please provide a message to broadcast. Example:\n/broadcast Hello everyone!');
-      }
-      
-      // Ask for confirmation
-      ctx.session.pendingBroadcast = message;
+          // Send a rich local banner image (if present) then the welcome message
+          const bannerPath = path.resolve(__dirname, '..', 'assets', 'start_banner.svg');
+
+          const welcomeMessage = `🚀 *Welcome to ${config.BOT_NAME}!*
+          \n` +
+                                 `I am a powerful and versatile Telegram bot with many features.\n` +
+                                 `Use the buttons below to explore what I can do!\n\n` +
+                                 `🔍 *Need help?* Use /help command for assistance.`;
+
+          try {
+            if (await fs.pathExists(bannerPath)) {
+              await ctx.replyWithPhoto({ source: fs.createReadStream(bannerPath) });
+            }
+          } catch (imgErr) {
+            logger.debug('Could not send start banner image:', imgErr.message);
+          }
+
+          await ctx.replyWithMarkdown(
+            welcomeMessage,
+            {
+              parse_mode: 'Markdown',
+              ...Markup.inlineKeyboard(getMainMenuKeyboard(keyboardStyle, features, ctx).inline_keyboard)
+            }
+          );
       
       await ctx.reply(
         `📣 *Broadcast Confirmation*\n\nYou are about to send this message to all users:\n\n${message}\n\nAre you sure?`,
