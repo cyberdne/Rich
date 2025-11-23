@@ -1,1 +1,14 @@
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Local env
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
 .env
