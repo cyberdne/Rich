@@ -8,6 +8,7 @@ const commandHandler = require('./handlers/commandHandler');
 const callbackHandler = require('./handlers/callbackHandler');
 const inlineQueryHandler = require('./handlers/inlineQueryHandler');
 const adminHandler = require('./handlers/adminHandler');
+const textHandler = require('./handlers/textHandler');
 const errorHandler = require('./handlers/errorHandler');
 const logger = require('./utils/logger');
 const { initDatabase } = require('./database/db');
@@ -60,6 +61,9 @@ callbackHandler(bot);
 
 // Set up inline query handler
 inlineQueryHandler(bot);
+
+// Set up generic text handler (for echo flows, etc.)
+textHandler(bot);
 
 // Set up admin handler
 adminHandler(bot);

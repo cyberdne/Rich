@@ -1,3 +1,33 @@
 {
-  "features": []
+  "features": [
+    {
+      "id": "ping",
+      "name": "Ping",
+      "description": "Check bot responsiveness (returns Pong)",
+      "emoji": "🏓",
+      "enabled": true,
+      "submenus": [],
+      "actions": [],
+      "createdAt": "2025-11-23T00:00:00.000Z",
+      "updatedAt": "2025-11-23T00:00:00.000Z"
+    },
+    {
+      "id": "echo",
+      "name": "Echo",
+      "description": "Echo back text you send via an action",
+      "emoji": "🗣️",
+      "enabled": true,
+      "submenus": [],
+      "actions": [
+        {
+          "id": "send_echo",
+          "name": "Send Echo",
+          "description": "Send a short message and the bot will echo it back",
+          "emoji": "↩️"
+        }
+      ],
+      "createdAt": "2025-11-23T00:00:00.000Z",
+      "updatedAt": "2025-11-23T00:00:00.000Z"
+    }
+  ]
 }
