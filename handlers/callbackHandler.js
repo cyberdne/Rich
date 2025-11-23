@@ -41,6 +41,32 @@ module.exports = (bot) => {
       } else if (callbackData.startsWith('action:')) {
         const parts = callbackData.split(':');
         await handleAction(ctx, parts[1], parts[2]);
+      } else if (callbackData.startsWith('admin:edit_feature:')) {
+        // admin:edit_feature:<featureId>
+        const parts = callbackData.split(':');
+        const featureId = parts.slice(2).join(':');
+        await handleAdminEditFeature(ctx, featureId);
+      } else if (callbackData.startsWith('admin:edit_field:')) {
+        // admin:edit_field:<field>:<featureId>
+        const parts = callbackData.split(':');
+        const field = parts[2];
+        const featureId = parts.slice(3).join(':');
+        await handleAdminEditField(ctx, featureId, field);
+      } else if (callbackData.startsWith('admin:edit_toggle:')) {
+        const featureId = callbackData.split(':')[2];
+        await handleAdminToggle(ctx, featureId);
+      } else if (callbackData.startsWith('admin:edit_actions:')) {
+        const featureId = callbackData.split(':')[2];
+        await handleAdminEditActions(ctx, featureId);
+      } else if (callbackData.startsWith('admin:edit_submenus:')) {
+        const featureId = callbackData.split(':')[2];
+        await handleAdminEditSubmenus(ctx, featureId);
+      } else if (callbackData.startsWith('admin:edit_regen:')) {
+        const featureId = callbackData.split(':')[2];
+        await handleAdminRegenerate(ctx, featureId);
+      } else if (callbackData.startsWith('admin:edit_delete:')) {
+        const featureId = callbackData.split(':')[2];
+        await handleAdminDelete(ctx, featureId);
       } else if (callbackData.startsWith('admin:')) {
         await handleAdminOption(ctx, callbackData.split(':')[1]);
       } else if (callbackData === 'broadcast_confirm') {
@@ -924,6 +950,155 @@ async function handleAdminEditFeatures(ctx) {
     );
   } catch (error) {
     logger.error('Error in handleAdminEditFeatures:', error);
+    throw error;
+  }
+}
+
+// Show edit UI for a single feature
+async function handleAdminEditFeature(ctx, featureId) {
+  try {
+    const featuresDb = getFeaturesDb();
+    const feature = featuresDb.data.features.find(f => f.id === featureId);
+
+    if (!feature) {
+      return ctx.reply(`Feature with ID ${featureId} not found.`);
+    }
+
+    const featureText = `${feature.emoji} *${feature.name}*\n\n${feature.description}\n\n` +
+                        `Enabled: ${feature.enabled ? '✅' : '❌'}\n` +
+                        `Actions: ${feature.actions?.length || 0} | Submenus: ${feature.submenus?.length || 0}`;
+
+    const keyboard = [
+      [ { text: '✏️ Edit Name', callback_data: `admin:edit_field:name:${featureId}` }, { text: '📝 Edit Description', callback_data: `admin:edit_field:description:${featureId}` } ],
+      [ { text: '🔣 Edit Emoji', callback_data: `admin:edit_field:emoji:${featureId}` }, { text: feature.enabled ? '🚫 Disable' : '✅ Enable', callback_data: `admin:edit_toggle:${featureId}` } ],
+      [ { text: '🧩 Edit Actions (JSON)', callback_data: `admin:edit_actions:${featureId}` }, { text: '📁 Edit Submenus (JSON)', callback_data: `admin:edit_submenus:${featureId}` } ],
+      [ { text: '🔁 Regenerate Module', callback_data: `admin:edit_regen:${featureId}` }, { text: '🗑️ Delete Feature', callback_data: `admin:edit_delete:${featureId}` } ],
+      [ { text: '🔙 Back', callback_data: 'admin:edit_features' } ]
+    ];
+
+    try {
+      await ctx.editMessageText(featureText, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+    } catch (err) {
+      await ctx.reply(featureText, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+    }
+  } catch (error) {
+    logger.error('Error in handleAdminEditFeature:', error);
+    throw error;
+  }
+}
+
+// Prompt admin to edit a single field
+async function handleAdminEditField(ctx, featureId, field) {
+  try {
+    // Only admins allowed
+    if (!config.ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ You do not have permission to edit features.');
+
+    // Set session state to await field
+    ctx.session.featureEditor = {
+      state: 'awaiting_field',
+      featureId,
+      field
+    };
+
+    await ctx.reply(`✏️ Send the new value for *${field}* of feature *${featureId}* (or /cancel to abort).`, { parse_mode: 'Markdown' });
+  } catch (error) {
+    logger.error('Error in handleAdminEditField:', error);
+    throw error;
+  }
+}
+
+// Toggle enabled flag
+async function handleAdminToggle(ctx, featureId) {
+  try {
+    if (!config.ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ You do not have permission to edit features.');
+
+    const { updateFeature } = require('../features/featureLoader');
+    const { getFeaturesDb } = require('../database/db');
+    const featuresDb = getFeaturesDb();
+    const feature = featuresDb.data.features.find(f => f.id === featureId);
+    if (!feature) return ctx.reply(`Feature ${featureId} not found`);
+
+    const updated = await updateFeature(featureId, { enabled: !feature.enabled });
+    await ctx.reply(`✅ Feature "${updated.name}" is now ${updated.enabled ? 'enabled' : 'disabled'}.`);
+  } catch (error) {
+    logger.error('Error in handleAdminToggle:', error);
+    throw error;
+  }
+}
+
+// Prompt admin to send JSON for actions
+async function handleAdminEditActions(ctx, featureId) {
+  try {
+    if (!config.ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ You do not have permission to edit features.');
+
+    ctx.session.featureEditor = {
+      state: 'awaiting_json',
+      featureId,
+      target: 'actions'
+    };
+
+    await ctx.reply('📥 Please send the JSON array for *actions* (example: `[{ "id":"get_started","name":"Get Started","description":"...","emoji":"▶️" }]`) or /cancel to abort.', { parse_mode: 'Markdown' });
+  } catch (error) {
+    logger.error('Error in handleAdminEditActions:', error);
+    throw error;
+  }
+}
+
+// Prompt admin to send JSON for submenus
+async function handleAdminEditSubmenus(ctx, featureId) {
+  try {
+    if (!config.ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ You do not have permission to edit features.');
+
+    ctx.session.featureEditor = {
+      state: 'awaiting_json',
+      featureId,
+      target: 'submenus'
+    };
+
+    await ctx.reply('📥 Please send the JSON array for *submenus* (see template) or /cancel to abort.', { parse_mode: 'Markdown' });
+  } catch (error) {
+    logger.error('Error in handleAdminEditSubmenus:', error);
+    throw error;
+  }
+}
+
+// Regenerate module file for a feature
+async function handleAdminRegenerate(ctx, featureId) {
+  try {
+    if (!config.ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ You do not have permission to edit features.');
+
+    const { getFeaturesDb } = require('../database/db');
+    const { updateFeatureModule } = require('../utils/featureModuleGenerator');
+
+    const featuresDb = getFeaturesDb();
+    const feature = featuresDb.data.features.find(f => f.id === featureId);
+    if (!feature) return ctx.reply(`Feature ${featureId} not found`);
+
+    await updateFeatureModule(featureId, feature);
+    await ctx.reply(`🔁 Module regenerated for feature *${feature.name}*`, { parse_mode: 'Markdown' });
+  } catch (error) {
+    logger.error('Error in handleAdminRegenerate:', error);
+    throw error;
+  }
+}
+
+// Delete a feature
+async function handleAdminDelete(ctx, featureId) {
+  try {
+    if (!config.ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ You do not have permission to delete features.');
+
+    const { deleteFeature } = require('../features/featureLoader');
+
+    await deleteFeature(featureId);
+    await ctx.reply(`🗑️ Feature *${featureId}* deleted.`, { parse_mode: 'Markdown' });
+  } catch (error) {
+    logger.error('Error in handleAdminDelete:', error);
     throw error;
   }
 }

@@ -23,6 +23,45 @@ module.exports = (bot) => {
   // Handle text messages from admins (for feature generation etc.)
   bot.on('text', async (ctx, next) => {
     try {
+      // Handle feature editor session (admin edits via bot)
+      if (ctx.session && ctx.session.featureEditor && config.ADMIN_IDS.includes(ctx.from.id)) {
+        const { state, featureId, field, target } = ctx.session.featureEditor;
+        const { updateFeature } = require('../features/featureLoader');
+
+        // Cancel
+        if (ctx.message.text === '/cancel') {
+          ctx.session.featureEditor = null;
+          return ctx.reply('Cancelled.');
+        }
+
+        // Awaiting simple field value
+        if (state === 'awaiting_field') {
+          const newValue = ctx.message.text.trim();
+          const updates = {};
+          updates[field] = newValue;
+
+          await updateFeature(featureId, updates);
+          ctx.session.featureEditor = null;
+          return ctx.reply(`✅ Updated *${field}* for feature *${featureId}*.`, { parse_mode: 'Markdown' });
+        }
+
+        // Awaiting JSON for actions or submenus
+        if (state === 'awaiting_json') {
+          const jsonText = ctx.message.text.trim();
+          let parsed;
+          try {
+            parsed = JSON.parse(jsonText);
+          } catch (err) {
+            return ctx.reply('❌ Invalid JSON. Please send a valid JSON array or /cancel.');
+          }
+
+          const updates = {};
+          updates[target] = parsed;
+          await updateFeature(featureId, updates);
+          ctx.session.featureEditor = null;
+          return ctx.reply(`✅ Updated *${target}* for feature *${featureId}*.`, { parse_mode: 'Markdown' });
+        }
+      }
       // Check if we're in feature generation mode
       if (ctx.session.featureGeneratorState && config.ADMIN_IDS.includes(ctx.from.id)) {
         // Handle based on current state
