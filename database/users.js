@@ -29,6 +29,8 @@ async function addUser(user, isAdmin = false) {
     const newUser = {
       ...user,
       isAdmin,
+      // verification: admins auto-verified, others must verify via button
+      verified: !!isAdmin,
       settings: {
         language: 'en',
         keyboardStyle: 'modern',
@@ -277,6 +279,21 @@ async function isUserBanned(userId) {
   }
 }
 
+/**
+ * Set user verified flag
+ * @param {number} userId
+ * @param {boolean} verified
+ * @returns {Promise<Object|null>} Updated user
+ */
+async function setUserVerified(userId, verified = true) {
+  try {
+    return await updateUser(userId, { verified });
+  } catch (error) {
+    logger.error(`Error setting verified for user ${userId}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   addUser,
   getUser,
@@ -290,4 +307,5 @@ module.exports = {
   banUser,
   unbanUser,
   isUserBanned,
+  setUserVerified,
 };

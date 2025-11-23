@@ -264,5 +264,12 @@ module.exports = {
   getFeatureSubmenu,
   getFeatureGeneratorKeyboard,
   backButton,
+  // Verification keyboard for new users
+  getVerificationKeyboard: () => ({
+    inline_keyboard: [
+      [ { text: '✅ Verify', callback_data: 'verify' } ],
+      [ { text: '🔒 Cancel', callback_data: 'main_menu' } ]
+    ]
+  }),
   KEYBOARD_STYLES
 };
