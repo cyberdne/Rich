@@ -77,6 +77,12 @@ bot.catch(errorHandler);
 // Start the bot
 (async () => {
   try {
+    // Basic validation for BOT_TOKEN to avoid hard-to-debug 404 from Telegram
+    const TOKEN_REGEX = /^\d+:[A-Za-z0-9_-]{35,}$/;
+    if (!config.BOT_TOKEN || !TOKEN_REGEX.test(config.BOT_TOKEN)) {
+      logger.error('BOT_TOKEN is missing or appears invalid. Please set a valid BOT_TOKEN in your .env file.');
+      process.exit(1);
+    }
     await bot.launch();
     
     try {
