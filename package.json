@@ -20,7 +20,7 @@
     "lodash": "^4.17.21",
     "fs-extra": "^11.2.0",
     "moment-timezone": "^0.5.46",
-    "telegraf-i18n": "^6.6.0",
+    
     "nanoid": "^4.0.2"
   },
   "devDependencies": {

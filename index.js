@@ -1,6 +1,6 @@
 const { Telegraf, session } = require('telegraf');
 const LocalSession = require('telegraf-session-local');
-const i18n = require('telegraf-i18n');
+const i18n = require('./middleware/i18n');
 const path = require('path');
 const fs = require('fs-extra');
 const config = require('./config/config');
@@ -22,16 +22,9 @@ const autoFixer = require('./modules/ai/autoFixer');
 const bot = new Telegraf(config.BOT_TOKEN);
 
 // Setup localization
-const i18nInstance = new i18n({
+const i18nInstance = i18n({
   directory: path.resolve(__dirname, 'locales'),
-  defaultLanguage: 'en',
-  sessionName: 'session',
-  useSession: true,
-  templateData: {
-    pluralize: count => {
-      return count === 1 ? '' : 's';
-    }
-  }
+  defaultLanguage: 'en'
 });
 
 // Initialize database
