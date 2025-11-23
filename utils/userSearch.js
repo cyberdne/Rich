@@ -10,7 +10,7 @@ const config = require('../config/config');
  */
 async function searchUsers(query, searchType = 'all') {
   try {
-    const allUsers = getAllUsers();
+    const allUsers = await getAllUsers();
     
     if (!Array.isArray(allUsers)) {
       logger.warn('getAllUsers returned non-array');
