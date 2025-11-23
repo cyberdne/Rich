@@ -520,7 +520,7 @@ module.exports = {
       switch (action.id) {
         // Add cases for your actions here
         default:
-          await ctx.reply(\`Action \${action.id} not implemented yet.\`);
+          await ctx.reply(\`Action \${action.id} received. No handler is defined for this action. Please edit the feature to add behavior.\`);
           break;
       }
       

@@ -20,3 +20,8 @@
 2025-11-22 18:34:12 [WARN]: Could not fetch bot info: {"service":"bot-service"}
 2025-11-22 18:34:12 [INFO]: Bot is running and listening for updates {"service":"bot-service"}
 2025-11-22 18:34:16 [INFO]: Received SIGTERM, shutting down gracefully... {"service":"bot-service"}
+2025-11-23 07:36:11 [WARN]: OpenAI API Key not configured. AI features will be disabled. {"service":"bot-service"}
+2025-11-23 07:36:11 [WARN]: OpenAI API Key not configured. AI feature generation will be disabled. {"service":"bot-service"}
+2025-11-23 07:36:12 [WARN]: OpenAI API Key not configured. AI features will be disabled. {"service":"bot-service"}
+2025-11-23 07:36:13 [WARN]: OpenAI API Key not configured. AI features will be disabled. {"service":"bot-service"}
+2025-11-23 07:36:13 [WARN]: OpenAI API Key not configured. AI feature generation will be disabled. {"service":"bot-service"}

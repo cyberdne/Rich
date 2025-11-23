@@ -44,30 +44,38 @@ warn_feature() {
 
 echo -e "\n${BLUE}=== CONFIGURATION TESTS ===${NC}"
 
-# Test .env file
+# Test .env file — allow using .env.example as a template when .env is not committed
+ENV_FILE=""
 if [ -f .env ]; then
+    ENV_FILE=".env"
     test_feature ".env file exists" "true" ""
-    
+elif [ -f .env.example ]; then
+    ENV_FILE=".env.example"
+    warn_feature ".env file" "No .env found; using .env.example as template. Copy to .env and fill secrets before deployment."
+    test_feature ".env file exists" "true" ""
+else
+    test_feature ".env file exists" "false" ".env file not found"
+fi
+
+if [ -n "$ENV_FILE" ]; then
     # Check BOT_TOKEN
-    if grep -q "BOT_TOKEN=" .env; then
-        BOT_TOKEN=$(grep "BOT_TOKEN=" .env | cut -d '=' -f 2)
+    if grep -q "BOT_TOKEN=" "$ENV_FILE"; then
+        BOT_TOKEN=$(grep "BOT_TOKEN=" "$ENV_FILE" | head -n1 | cut -d '=' -f 2)
         if [ -z "$BOT_TOKEN" ] || [ "$BOT_TOKEN" = "your_bot_token_here" ]; then
-            test_feature "BOT_TOKEN configured" "false" "BOT_TOKEN not set or placeholder value"
+            test_feature "BOT_TOKEN configured" "false" "BOT_TOKEN not set or placeholder value in $ENV_FILE"
         else
             test_feature "BOT_TOKEN configured" "true" ""
         fi
     else
-        test_feature "BOT_TOKEN configured" "false" "BOT_TOKEN not found in .env"
+        test_feature "BOT_TOKEN configured" "false" "BOT_TOKEN not found in $ENV_FILE"
     fi
-    
+
     # Check ADMIN_IDS
-    if grep -q "ADMIN_IDS=" .env; then
+    if grep -q "ADMIN_IDS=" "$ENV_FILE"; then
         test_feature "ADMIN_IDS configured" "true" ""
     else
-        test_feature "ADMIN_IDS configured" "false" "ADMIN_IDS not found in .env"
+        test_feature "ADMIN_IDS configured" "false" "ADMIN_IDS not found in $ENV_FILE"
     fi
-else
-    test_feature ".env file exists" "false" ".env file not found"
 fi
 
 echo -e "\n${BLUE}=== FILE STRUCTURE TESTS ===${NC}"

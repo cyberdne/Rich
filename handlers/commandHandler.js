@@ -255,43 +255,40 @@ module.exports = (bot) => {
   // Broadcast command (admin only)
   bot.command('broadcast', async (ctx) => {
     try {
-      // Check if user is admin
+      // Ensure command issued by admin
       if (!config.ADMIN_IDS.includes(ctx.from.id)) {
-          // Send a rich local banner image (if present) then the welcome message
-          const bannerPath = path.resolve(__dirname, '..', 'assets', 'start_banner.svg');
+        return ctx.reply('⛔ You do not have permission to broadcast messages.');
+      }
 
-          const welcomeMessage = `🚀 *Welcome to ${config.BOT_NAME}!*
-          \n` +
-                                 `I am a powerful and versatile Telegram bot with many features.\n` +
-                                 `Use the buttons below to explore what I can do!\n\n` +
-                                 `🔍 *Need help?* Use /help command for assistance.`;
+      // Extract broadcast message text
+      const message = (ctx.message.text || '').split(' ').slice(1).join(' ').trim();
+      if (!message) {
+        return ctx.reply('❗ Usage: /broadcast Your message here');
+      }
 
-          try {
-            if (await fs.pathExists(bannerPath)) {
-              await ctx.replyWithPhoto({ source: fs.createReadStream(bannerPath) });
-            }
-          } catch (imgErr) {
-            logger.debug('Could not send start banner image:', imgErr.message);
-          }
+      // Optionally send a local banner first (non-blocking)
+      const bannerPath = path.resolve(__dirname, '..', 'assets', 'start_banner.svg');
+      try {
+        if (await fs.pathExists(bannerPath)) {
+          await ctx.replyWithPhoto({ source: fs.createReadStream(bannerPath) });
+        }
+      } catch (imgErr) {
+        logger.debug('Could not send start banner image:', imgErr.message);
+      }
 
-          await ctx.replyWithMarkdown(
-            welcomeMessage,
-            {
-              parse_mode: 'Markdown',
-              ...Markup.inlineKeyboard(getMainMenuKeyboard(keyboardStyle, features, ctx).inline_keyboard)
-            }
-          );
-      
+      // Ask for confirmation before broadcasting
       await ctx.reply(
         `📣 *Broadcast Confirmation*\n\nYou are about to send this message to all users:\n\n${message}\n\nAre you sure?`,
         {
           parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback('✅ Yes, send it', 'broadcast_confirm'),
-              Markup.button.callback('❌ Cancel', 'broadcast_cancel')
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Yes, send it', callback_data: 'broadcast_confirm' },
+                { text: '❌ Cancel', callback_data: 'broadcast_cancel' }
+              ]
             ]
-          ])
+          }
         }
       );
     } catch (error) {
